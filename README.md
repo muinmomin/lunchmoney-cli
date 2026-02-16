@@ -111,4 +111,40 @@ go test ./...
 
 ## Homebrew
 
-Homebrew distribution is planned next.
+This repo is its own tap.
+
+```bash
+brew tap muinmomin/lunchmoney-cli https://github.com/muinmomin/lunchmoney-cli
+brew install muinmomin/lunchmoney-cli/lunchmoney-cli
+```
+
+You can also install directly:
+
+```bash
+brew install muinmomin/lunchmoney-cli/lunchmoney-cli
+```
+
+## Release Flow (Homebrew + GitHub Releases)
+
+Releases are tag-driven via GitHub Actions.
+
+1. Create and push a semver tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+2. The workflow at `.github/workflows/release-homebrew.yml` automatically:
+   - builds `lm` for macOS `arm64` and `amd64`
+   - uploads `lm-darwin-arm64.tar.gz` and `lm-darwin-amd64.tar.gz` to the GitHub Release
+   - computes SHA256 checksums
+   - updates `Formula/lunchmoney-cli.rb` with the exact version and checksums
+   - commits the formula update to `main`
+
+After release:
+
+```bash
+brew update
+brew upgrade muinmomin/lunchmoney-cli/lunchmoney-cli
+```

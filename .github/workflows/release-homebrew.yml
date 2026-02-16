@@ -1,0 +1,157 @@
+name: Release Homebrew Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (example: v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: arm64
+            asset_name: lm-darwin-arm64
+          - goarch: amd64
+            asset_name: lm-darwin-amd64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG_NAME }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build Binary Tarball
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=darwin GOARCH=${{ matrix.goarch }} go build -trimpath -ldflags="-s -w" -o ./dist/lm ./cmd/lm
+          tar -C dist -czf ./dist/${{ matrix.asset_name }}.tar.gz lm
+          sha256sum ./dist/${{ matrix.asset_name }}.tar.gz | awk '{print $1}' > ./dist/${{ matrix.asset_name }}.sha256
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.goarch }}
+          path: |
+            dist/${{ matrix.asset_name }}.tar.gz
+            dist/${{ matrix.asset_name }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Arm64 Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-arm64
+          path: dist
+
+      - name: Download Amd64 Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-amd64
+          path: dist
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256
+          generate_release_notes: true
+
+  update_formula:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Default Branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download Arm64 Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-arm64
+          path: dist
+
+      - name: Download Amd64 Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets-amd64
+          path: dist
+
+      - name: Update Formula
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG_NAME#v}"
+          ARM64_SHA="$(tr -d '[:space:]' < dist/lm-darwin-arm64.sha256)"
+          AMD64_SHA="$(tr -d '[:space:]' < dist/lm-darwin-amd64.sha256)"
+
+          mkdir -p Formula
+
+          cat > Formula/lunchmoney-cli.rb <<EOF_FORMULA
+          class LunchmoneyCli < Formula
+            desc "Focused Lunch Money v2 CLI for transaction review workflows"
+            homepage "https://github.com/muinmomin/lunchmoney-cli"
+            version "${VERSION}"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/muinmomin/lunchmoney-cli/releases/download/v#{version}/lm-darwin-arm64.tar.gz"
+                sha256 "${ARM64_SHA}"
+              end
+
+              on_intel do
+                url "https://github.com/muinmomin/lunchmoney-cli/releases/download/v#{version}/lm-darwin-amd64.tar.gz"
+                sha256 "${AMD64_SHA}"
+              end
+            end
+
+            def install
+              bin.install "lm"
+            end
+
+            test do
+              assert_match "Lunch Money CLI", shell_output("#{bin}/lm --help")
+            end
+          end
+          EOF_FORMULA
+
+      - name: Commit Formula Update
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain -- Formula/lunchmoney-cli.rb)" ]; then
+            echo "Formula already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/lunchmoney-cli.rb
+          git commit -m "chore(homebrew): update formula for ${TAG_NAME}"
+          git push origin HEAD:main
