@@ -24,6 +24,7 @@ This tool is optimized for one workflow: list transactions, review uncategorized
 Install:
 
 ```bash
+brew tap muinmomin/lunchmoney-cli https://github.com/muinmomin/lunchmoney-cli
 brew install muinmomin/lunchmoney-cli/lm
 ```
 
