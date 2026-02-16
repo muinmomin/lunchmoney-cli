@@ -235,6 +235,26 @@ func (c *Client) UpdateTransaction(ctx context.Context, txID int64, categoryID *
 		payload["notes"] = *note
 	}
 
+	return c.updateTransaction(ctx, txID, payload)
+}
+
+func (c *Client) MarkReviewed(ctx context.Context, txIDs []int64) ([]Transaction, error) {
+	if len(txIDs) == 0 {
+		return nil, errors.New("at least one transaction id is required")
+	}
+
+	updated := make([]Transaction, 0, len(txIDs))
+	for _, txID := range txIDs {
+		tx, err := c.updateTransaction(ctx, txID, map[string]any{"status": "reviewed"})
+		if err != nil {
+			return nil, fmt.Errorf("failed to mark transaction %d as reviewed: %w", txID, err)
+		}
+		updated = append(updated, tx)
+	}
+	return updated, nil
+}
+
+func (c *Client) updateTransaction(ctx context.Context, txID int64, payload map[string]any) (Transaction, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return Transaction{}, err
@@ -251,41 +271,6 @@ func (c *Client) UpdateTransaction(ctx context.Context, txID int64, categoryID *
 		return Transaction{}, err
 	}
 	return tx, nil
-}
-
-func (c *Client) MarkReviewed(ctx context.Context, txIDs []int64) ([]Transaction, error) {
-	if len(txIDs) == 0 {
-		return nil, errors.New("at least one transaction id is required")
-	}
-
-	type txUpdate struct {
-		ID     int64  `json:"id"`
-		Status string `json:"status"`
-	}
-	updates := make([]txUpdate, 0, len(txIDs))
-	for _, id := range txIDs {
-		updates = append(updates, txUpdate{ID: id, Status: "reviewed"})
-	}
-
-	payload := map[string]any{"transactions": updates}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	u := c.endpoint("/transactions")
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.String(), bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	var resp struct {
-		Transactions []Transaction `json:"transactions"`
-	}
-	if err := c.doJSON(req, http.StatusOK, &resp); err != nil {
-		return nil, err
-	}
-	return resp.Transactions, nil
 }
 
 func (c *Client) endpoint(p string) *url.URL {
