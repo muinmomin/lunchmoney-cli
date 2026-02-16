@@ -63,6 +63,9 @@ func newTxListCmd() *cobra.Command {
 			if unreviewed {
 				status = "unreviewed"
 			}
+			if includePending && !unreviewed {
+				return errors.New("--include-pending requires --unreviewed (pending transactions are always unreviewed)")
+			}
 
 			client, err := lunchmoney.NewFromEnv()
 			if err != nil {
@@ -129,7 +132,7 @@ func newTxListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&startDate, "start", "", "Start date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&endDate, "end", "", "End date (YYYY-MM-DD), defaults to today")
 	cmd.Flags().BoolVar(&unreviewed, "unreviewed", false, "List unreviewed transactions (default is reviewed)")
-	cmd.Flags().BoolVar(&includePending, "include-pending", false, "Include pending transactions")
+	cmd.Flags().BoolVar(&includePending, "include-pending", false, "Include pending transactions (requires --unreviewed)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON")
 	_ = cmd.MarkFlagRequired("start")
 
