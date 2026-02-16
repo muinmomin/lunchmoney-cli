@@ -17,11 +17,38 @@ This tool is optimized for one workflow: list transactions, review uncategorized
 - Go 1.26+
 - A Lunch Money API key (`LUNCHMONEY_API_KEY`)
 
-## Install (From Source)
+## Install & Update
+
+### Homebrew (Recommended)
+
+Install:
+
+```bash
+brew install muinmomin/lunchmoney-cli/lunchmoney-cli
+```
+
+Update:
+
+```bash
+brew update
+brew upgrade
+```
+
+### From Source
+
+Install:
 
 ```bash
 git clone https://github.com/muinmomin/lunchmoney-cli.git
 cd lunchmoney-cli
+go build -o ./bin/lm ./cmd/lm
+```
+
+Update:
+
+```bash
+cd lunchmoney-cli
+git pull --ff-only
 go build -o ./bin/lm ./cmd/lm
 ```
 
@@ -107,22 +134,6 @@ lm tx mark-reviewed 2355632583 2355632591
 go build ./...
 go vet ./...
 go test ./...
-```
-
-## Homebrew
-
-This repo is its own tap.
-
-```bash
-brew tap muinmomin/lunchmoney-cli https://github.com/muinmomin/lunchmoney-cli
-brew install muinmomin/lunchmoney-cli/lunchmoney-cli
-```
-
-### Updating
-
-```bash
-brew update
-brew upgrade muinmomin/lunchmoney-cli/lunchmoney-cli
 ```
 
 ## Release Flow (Homebrew + GitHub Releases)
