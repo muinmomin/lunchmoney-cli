@@ -118,10 +118,11 @@ brew tap muinmomin/lunchmoney-cli https://github.com/muinmomin/lunchmoney-cli
 brew install muinmomin/lunchmoney-cli/lunchmoney-cli
 ```
 
-You can also install directly:
+### Updating
 
 ```bash
-brew install muinmomin/lunchmoney-cli/lunchmoney-cli
+brew update
+brew upgrade muinmomin/lunchmoney-cli/lunchmoney-cli
 ```
 
 ## Release Flow (Homebrew + GitHub Releases)
@@ -142,9 +143,4 @@ git push origin v0.1.0
    - updates `Formula/lunchmoney-cli.rb` with the exact version and checksums
    - commits the formula update to `main`
 
-After release:
-
-```bash
-brew update
-brew upgrade muinmomin/lunchmoney-cli/lunchmoney-cli
-```
+After release, users can run the update commands above.
