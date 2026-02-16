@@ -127,16 +127,27 @@ brew upgrade muinmomin/lunchmoney-cli/lunchmoney-cli
 
 ## Release Flow (Homebrew + GitHub Releases)
 
-Releases are tag-driven via GitHub Actions.
+Releases are tag-driven via GitHub Actions, with a helper script so you do not have to manually calculate versions or remember steps.
 
-1. Create and push a semver tag:
+Use one of:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+./scripts/release.sh patch
+./scripts/release.sh minor
+./scripts/release.sh major
+./scripts/release.sh 0.2.0
 ```
 
-2. The workflow at `.github/workflows/release-homebrew.yml` automatically:
+What `scripts/release.sh` does:
+
+- validates a clean working tree on `main`
+- fast-forwards local `main` to `origin/main`
+- runs `go build ./...`, `go vet ./...`, and `go test ./...`
+- pushes `main`
+- creates and pushes the new `vX.Y.Z` tag
+
+The workflow at `.github/workflows/release-homebrew.yml` then automatically:
+
    - builds `lm` for macOS `arm64` and `amd64`
    - uploads `lm-darwin-arm64.tar.gz` and `lm-darwin-amd64.tar.gz` to the GitHub Release
    - computes SHA256 checksums
