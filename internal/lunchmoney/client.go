@@ -32,6 +32,7 @@ type ListTransactionsParams struct {
 	EndDate        string
 	Status         string
 	IncludePending bool
+	IsPending      *bool
 	Limit          int
 }
 
@@ -106,9 +107,6 @@ func (c *Client) ListTransactions(ctx context.Context, params ListTransactionsPa
 	if params.EndDate == "" {
 		return nil, errors.New("end date is required")
 	}
-	if params.Status == "" {
-		return nil, errors.New("status is required")
-	}
 	if params.Limit <= 0 {
 		params.Limit = 1000
 	}
@@ -120,10 +118,14 @@ func (c *Client) ListTransactions(ctx context.Context, params ListTransactionsPa
 		q := url.Values{}
 		q.Set("start_date", params.StartDate)
 		q.Set("end_date", params.EndDate)
-		q.Set("status", params.Status)
+		if params.Status != "" {
+			q.Set("status", params.Status)
+		}
 		q.Set("limit", strconv.Itoa(params.Limit))
 		q.Set("offset", strconv.Itoa(offset))
-		if params.IncludePending {
+		if params.IsPending != nil {
+			q.Set("is_pending", strconv.FormatBool(*params.IsPending))
+		} else if params.IncludePending {
 			q.Set("include_pending", "true")
 		}
 

@@ -78,10 +78,10 @@ Behavior:
 - default status is `reviewed`
 - `--unreviewed` switches status to `unreviewed`
 - pending transactions are excluded by default
-- `--include-pending` includes pending transactions and requires `--unreviewed`
+- `--include-pending` lists pending transactions only and requires `--unreviewed`
 - all pages are fetched automatically
 - in reviewed mode, categories marked `exclude_from_totals` are filtered out
-- in unreviewed mode, everything is included
+- in unreviewed mode, `exclude_from_totals` filtering is not applied
 
 ### `lm category list`
 

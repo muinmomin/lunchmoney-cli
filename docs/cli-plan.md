@@ -17,10 +17,10 @@ Behavior:
 - Default status filter is `reviewed`.
 - `--unreviewed` switches status filter to `unreviewed`.
 - Pending transactions are excluded by default.
-- `--include-pending` includes pending transactions and requires `--unreviewed`.
+- `--include-pending` lists pending transactions only and requires `--unreviewed`.
 - Pagination is internal and automatic until all pages are fetched (`has_more=false`).
 - For default listing (`reviewed`): filter out transactions where category has `exclude_from_totals=true`.
-- For review listing (`--unreviewed`): include everything (do not filter by `exclude_from_totals`).
+- For review listing (`--unreviewed`): do not filter by `exclude_from_totals`.
 
 Transaction output fields (MCP-like, plus review metadata):
 - `id`
