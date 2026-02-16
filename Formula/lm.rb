@@ -1,4 +1,4 @@
-class LunchmoneyCli < Formula
+class Lm < Formula
   desc "Focused Lunch Money v2 CLI for transaction review workflows"
   homepage "https://github.com/muinmomin/lunchmoney-cli"
   version "0.1.0"

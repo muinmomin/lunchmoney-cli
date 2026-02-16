@@ -99,4 +99,4 @@ git tag "${new_tag}"
 git push origin "${new_tag}"
 
 echo "Release started for ${new_tag}"
-echo "GitHub Actions will build assets, publish release files, and update Formula/lunchmoney-cli.rb."
+echo "GitHub Actions will build assets, publish release files, and update Formula/lm.rb."

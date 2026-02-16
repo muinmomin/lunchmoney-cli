@@ -24,7 +24,7 @@ This tool is optimized for one workflow: list transactions, review uncategorized
 Install:
 
 ```bash
-brew install muinmomin/lunchmoney-cli/lunchmoney-cli
+brew install muinmomin/lunchmoney-cli/lm
 ```
 
 Update:
@@ -162,7 +162,7 @@ The workflow at `.github/workflows/release-homebrew.yml` then automatically:
    - builds `lm` for macOS `arm64` and `amd64`
    - uploads `lm-darwin-arm64.tar.gz` and `lm-darwin-amd64.tar.gz` to the GitHub Release
    - computes SHA256 checksums
-   - updates `Formula/lunchmoney-cli.rb` with the exact version and checksums
+   - updates `Formula/lm.rb` with the exact version and checksums
    - commits the formula update to `main`
 
 After release, users can run the update commands above.
