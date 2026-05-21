@@ -30,12 +30,12 @@ jobs:
             asset_name: lm-darwin-amd64
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG_NAME }}
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -49,7 +49,7 @@ jobs:
           sha256sum ./dist/${{ matrix.asset_name }}.tar.gz | awk '{print $1}' > ./dist/${{ matrix.asset_name }}.sha256
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-assets-${{ matrix.goarch }}
           path: |
@@ -62,19 +62,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Arm64 Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets-arm64
           path: dist
 
       - name: Download Amd64 Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets-amd64
           path: dist
 
       - name: Create or Update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG_NAME }}
           files: |
@@ -87,18 +87,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Default Branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
 
       - name: Download Arm64 Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets-arm64
           path: dist
 
       - name: Download Amd64 Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets-amd64
           path: dist
