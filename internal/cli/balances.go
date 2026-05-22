@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -136,7 +137,9 @@ func toBalancesView(
 		view.Totals.Cash += account.ToBase
 	}
 
-	view.Totals.NetCashAfterCredit = view.Totals.Cash - view.Totals.CreditBalances
+	view.Totals.Cash = roundCurrency(view.Totals.Cash)
+	view.Totals.CreditBalances = roundCurrency(view.Totals.CreditBalances)
+	view.Totals.NetCashAfterCredit = roundCurrency(view.Totals.Cash - view.Totals.CreditBalances)
 	return view
 }
 
@@ -208,4 +211,8 @@ func newerTimestamp(current, candidate string) string {
 		return candidate
 	}
 	return current
+}
+
+func roundCurrency(value float64) float64 {
+	return math.Round(value*100) / 100
 }
