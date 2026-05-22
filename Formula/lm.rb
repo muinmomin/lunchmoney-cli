@@ -1,17 +1,17 @@
 class Lm < Formula
   desc "Focused Lunch Money v2 CLI for transaction review workflows"
   homepage "https://github.com/muinmomin/lunchmoney-cli"
-  version "0.1.5"
+  version "0.1.6"
 
   on_macos do
     on_arm do
       url "https://github.com/muinmomin/lunchmoney-cli/releases/download/v#{version}/lm-darwin-arm64.tar.gz"
-      sha256 "1fb40b76dc788ad1913d6badfc9dfb9322d66fcc11a9f6be9412e699b7eacc80"
+      sha256 "2dc1481a72774dac540d25d59b89fe90408a6519c2e12d4c116709320524a203"
     end
 
     on_intel do
       url "https://github.com/muinmomin/lunchmoney-cli/releases/download/v#{version}/lm-darwin-amd64.tar.gz"
-      sha256 "174aa0c8021ddc715e811e65167f1e72f8a40017f876fe766d1af63b8e3c40f8"
+      sha256 "4d259a7b0dcd3108376c5d51a4ed2739c30844f57fab2f1bf556be6ee2681816"
     end
   end
 
