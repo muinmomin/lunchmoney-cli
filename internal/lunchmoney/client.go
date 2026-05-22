@@ -71,6 +71,13 @@ type ManualAccount struct {
 	Name            string  `json:"name"`
 	InstitutionName *string `json:"institution_name"`
 	DisplayName     *string `json:"display_name"`
+	Type            string  `json:"type"`
+	Subtype         *string `json:"subtype"`
+	Balance         string  `json:"balance"`
+	Currency        string  `json:"currency"`
+	ToBase          float64 `json:"to_base"`
+	BalanceAsOf     string  `json:"balance_as_of"`
+	Status          string  `json:"status"`
 }
 
 type PlaidAccount struct {
@@ -78,6 +85,13 @@ type PlaidAccount struct {
 	Name            string  `json:"name"`
 	InstitutionName string  `json:"institution_name"`
 	DisplayName     *string `json:"display_name"`
+	Type            string  `json:"type"`
+	Subtype         *string `json:"subtype"`
+	Balance         string  `json:"balance"`
+	Currency        string  `json:"currency"`
+	ToBase          float64 `json:"to_base"`
+	BalanceAsOf     string  `json:"balance_last_update"`
+	Status          string  `json:"status"`
 }
 
 func NewFromEnv() (*Client, error) {

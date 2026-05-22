@@ -91,6 +91,22 @@ List categories (archived categories are excluded).
 lm category list [--json]
 ```
 
+### `lm balances`
+
+Show active account balances, grouped into cash/deposit accounts and credit cards.
+
+```bash
+lm balances [--json] [--include-inactive]
+```
+
+Behavior:
+
+- active accounts are shown by default
+- cash and deposit balances are totaled as cash
+- credit account balances are totaled as card balances
+- net cash after cards is calculated as cash minus card balances
+- `--include-inactive` adds closed/inactive accounts to the account list
+
 ### `lm tx update`
 
 Update a single transaction's category and/or note.
@@ -122,6 +138,9 @@ lm tx list --start 2026-02-01 --unreviewed --include-pending --json
 
 lm category list
 lm category list --json
+
+lm balances
+lm balances --json
 
 lm tx update 2355632583 --category-id 1170290
 lm tx update 2355632583 --note "testing"

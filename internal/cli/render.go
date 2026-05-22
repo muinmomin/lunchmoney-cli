@@ -81,6 +81,36 @@ func printCategoriesTable(categories []categoryView) {
 	_ = w.Flush()
 }
 
+func printBalances(view balancesView, includeInactive bool) {
+	fmt.Printf("NET_CASH_AFTER_CREDIT\t%.2f\n", view.Totals.NetCashAfterCredit)
+	fmt.Printf("CASH\t%.2f\n", view.Totals.Cash)
+	fmt.Printf("CREDIT_BALANCES\t%.2f\n", view.Totals.CreditBalances)
+	fmt.Printf("ACTIVE_ACCOUNTS\t%d\n", view.Totals.ActiveAccounts)
+	if view.BalancesAsOf != "" {
+		fmt.Printf("BALANCES_AS_OF\t%s\n", view.BalancesAsOf)
+	}
+
+	printBalanceSection("CASH & DEPOSITS", view.Cash)
+	printBalanceSection("CREDIT CARDS", view.Credit)
+	if includeInactive {
+		printBalanceSection("INACTIVE", view.Inactive)
+	}
+}
+
+func printBalanceSection(title string, accounts []balanceAccountView) {
+	if len(accounts) == 0 {
+		return
+	}
+
+	fmt.Printf("\n%s\n", title)
+	w := newTabWriter(os.Stdout)
+	fmt.Fprintln(w, "ACCOUNT\tBALANCE")
+	for _, account := range accounts {
+		fmt.Fprintf(w, "%s\t%.2f\n", account.Name, account.ToBase)
+	}
+	_ = w.Flush()
+}
+
 func newTabWriter(w io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
 }

@@ -13,6 +13,7 @@ func NewRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(newTxCmd())
 	rootCmd.AddCommand(newCategoryCmd())
+	rootCmd.AddCommand(newBalancesCmd())
 
 	return rootCmd
 }
