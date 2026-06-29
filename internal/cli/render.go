@@ -32,6 +32,20 @@ type categoryView struct {
 	ExcludeFromTotals bool   `json:"exclude_from_totals"`
 }
 
+type splitPlanView struct {
+	TransactionID     int64            `json:"transaction_id"`
+	ParentAmount      string           `json:"parent_amount"`
+	ChildTransactions []splitChildView `json:"child_transactions"`
+	DryRun            bool             `json:"dry_run,omitempty"`
+}
+
+type splitChildView struct {
+	Index  int    `json:"index"`
+	ID     int64  `json:"id,omitempty"`
+	Amount string `json:"amount"`
+	Payee  string `json:"payee,omitempty"`
+}
+
 func printJSON(v any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -77,6 +91,19 @@ func printCategoriesTable(categories []categoryView) {
 			c.IsIncome,
 			c.ExcludeFromTotals,
 		)
+	}
+	_ = w.Flush()
+}
+
+func printSplitChildrenTable(children []splitChildView) {
+	w := newTabWriter(os.Stdout)
+	fmt.Fprintln(w, "PART\tID\tAMOUNT\tPAYEE")
+	for _, child := range children {
+		id := ""
+		if child.ID != 0 {
+			id = fmt.Sprintf("%d", child.ID)
+		}
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", child.Index, id, child.Amount, child.Payee)
 	}
 	_ = w.Flush()
 }

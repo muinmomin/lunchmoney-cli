@@ -35,6 +35,7 @@ func newTxCmd() *cobra.Command {
 	txCmd.AddCommand(newTxListCmd())
 	txCmd.AddCommand(newTxUpdateCmd())
 	txCmd.AddCommand(newTxMarkReviewedCmd())
+	txCmd.AddCommand(newTxSplitCmd())
 
 	return txCmd
 }
@@ -73,9 +74,9 @@ func newTxListCmd() *cobra.Command {
 			}
 
 			params := lunchmoney.ListTransactionsParams{
-				StartDate:      startDate,
-				EndDate:        endDate,
-				Limit:          1000,
+				StartDate: startDate,
+				EndDate:   endDate,
+				Limit:     1000,
 			}
 			if includePending {
 				pendingOnly := true
@@ -241,6 +242,106 @@ func newTxMarkReviewedCmd() *cobra.Command {
 	return cmd
 }
 
+func newTxSplitCmd() *cobra.Command {
+	var (
+		amounts    []string
+		parts      int
+		dryRun     bool
+		jsonOutput bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "split <tx-id>",
+		Short: "Split a transaction into child transactions",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			txID, err := parseTxID(args[0])
+			if err != nil {
+				return err
+			}
+			if parts > 0 && len(amounts) > 0 {
+				return errors.New("use either --parts or repeated --amount values, not both")
+			}
+			if parts == 0 && len(amounts) == 0 {
+				return errors.New("must provide --parts or at least two --amount values")
+			}
+			if parts < 0 {
+				return errors.New("--parts must be at least 2")
+			}
+			if parts > 0 && parts < 2 {
+				return errors.New("--parts must be at least 2")
+			}
+			if parts > 500 {
+				return errors.New("--parts cannot exceed 500")
+			}
+			if len(amounts) == 1 {
+				return errors.New("at least two --amount values are required")
+			}
+			if len(amounts) > 500 {
+				return errors.New("cannot split into more than 500 child transactions")
+			}
+
+			client, err := lunchmoney.NewFromEnv()
+			if err != nil {
+				return err
+			}
+
+			parent, err := client.GetTransaction(context.Background(), txID)
+			if err != nil {
+				return err
+			}
+			if err := validateSplittableTransaction(parent); err != nil {
+				return err
+			}
+
+			var splitAmounts []string
+			if parts > 0 {
+				splitAmounts, err = splitAmountIntoParts(parent.Amount, parts)
+			} else {
+				splitAmounts, err = validateSplitAmounts(parent.Amount, amounts)
+			}
+			if err != nil {
+				return err
+			}
+
+			children := make([]lunchmoney.SplitTransactionChild, 0, len(splitAmounts))
+			for _, amount := range splitAmounts {
+				children = append(children, lunchmoney.SplitTransactionChild{Amount: amount})
+			}
+
+			plan := toSplitPlanView(txID, parent.Amount, splitAmounts, dryRun)
+			if dryRun {
+				if jsonOutput {
+					return printJSON(plan)
+				}
+				fmt.Printf("Split transaction %d into %d child transaction(s) (dry run).\n", txID, len(splitAmounts))
+				printSplitChildrenTable(plan.ChildTransactions)
+				return nil
+			}
+
+			result, err := client.SplitTransaction(context.Background(), txID, children)
+			if err != nil {
+				return err
+			}
+			if jsonOutput {
+				return printJSON(result)
+			}
+
+			fmt.Printf("Split transaction %d into %d child transaction(s).\n", txID, len(splitAmounts))
+			resultChildren := toSplitResultChildViews(result.Children, splitAmounts)
+			printSplitChildrenTable(resultChildren)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringArrayVar(&amounts, "amount", nil, "Child amount; repeat for each split child")
+	cmd.Flags().IntVar(&parts, "parts", 0, "Split into this many equal parts")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and print the split without making the split API call")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON")
+
+	return cmd
+}
+
 func validateDateRange(startDate, endDate string) error {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
@@ -262,6 +363,210 @@ func parseTxID(raw string) (int64, error) {
 		return 0, fmt.Errorf("invalid transaction id %q", raw)
 	}
 	return id, nil
+}
+
+func validateSplittableTransaction(tx lunchmoney.Transaction) error {
+	if strings.TrimSpace(tx.Amount) == "" {
+		return fmt.Errorf("transaction %d has no amount", tx.ID)
+	}
+	if tx.IsSplitParent || tx.SplitParentID != nil {
+		return fmt.Errorf("transaction %d is already split", tx.ID)
+	}
+	if tx.IsGroupParent || tx.GroupParentID != nil {
+		return fmt.Errorf("transaction %d is grouped", tx.ID)
+	}
+	return nil
+}
+
+func splitAmountIntoParts(parentAmount string, parts int) ([]string, error) {
+	if parts < 2 {
+		return nil, errors.New("--parts must be at least 2")
+	}
+	parentUnits, err := parseMoneyUnits(parentAmount)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parent amount %q: %w", parentAmount, err)
+	}
+	if parentUnits == 0 {
+		return nil, errors.New("cannot split a zero-amount transaction")
+	}
+	if parentUnits%centsScale != 0 {
+		return nil, errors.New("--parts requires a parent amount with no fractional cents; use repeated --amount values instead")
+	}
+
+	totalCents := parentUnits / centsScale
+	sign := int64(1)
+	if totalCents < 0 {
+		sign = -1
+		totalCents = -totalCents
+	}
+	if totalCents < int64(parts) {
+		return nil, fmt.Errorf("cannot split %s into %d non-zero cent amounts", formatMoneyUnits(parentUnits), parts)
+	}
+
+	base := totalCents / int64(parts)
+	remainder := totalCents % int64(parts)
+	amounts := make([]string, 0, parts)
+	for i := 0; i < parts; i++ {
+		cents := base
+		if int64(i) < remainder {
+			cents++
+		}
+		amounts = append(amounts, formatMoneyUnits(sign*cents*centsScale))
+	}
+	return amounts, nil
+}
+
+func validateSplitAmounts(parentAmount string, rawAmounts []string) ([]string, error) {
+	if len(rawAmounts) < 2 {
+		return nil, errors.New("at least two --amount values are required")
+	}
+
+	parentUnits, err := parseMoneyUnits(parentAmount)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parent amount %q: %w", parentAmount, err)
+	}
+
+	amounts := make([]string, 0, len(rawAmounts))
+	var sum int64
+	for i, raw := range rawAmounts {
+		units, err := parseMoneyUnits(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --amount value %q: %w", raw, err)
+		}
+		if units == 0 {
+			return nil, fmt.Errorf("--amount value %d cannot be zero", i+1)
+		}
+		sum += units
+		amounts = append(amounts, formatMoneyUnits(units))
+	}
+
+	if sum != parentUnits {
+		return nil, fmt.Errorf("split amounts sum to %s, but parent transaction amount is %s", formatMoneyUnits(sum), formatMoneyUnits(parentUnits))
+	}
+	return amounts, nil
+}
+
+const (
+	moneyScale = int64(10000)
+	centsScale = int64(100)
+)
+
+func parseMoneyUnits(raw string) (int64, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return 0, errors.New("amount cannot be empty")
+	}
+
+	sign := int64(1)
+	if strings.HasPrefix(s, "-") {
+		sign = -1
+		s = strings.TrimPrefix(s, "-")
+	}
+	if strings.HasPrefix(s, "+") {
+		return 0, errors.New("amount must not include a plus sign")
+	}
+
+	whole, frac, hasFrac := strings.Cut(s, ".")
+	if whole == "" || !isDigits(whole) {
+		return 0, errors.New("amount must include whole-number digits")
+	}
+	if hasFrac {
+		if frac == "" {
+			return 0, errors.New("amount must include fractional digits after decimal point")
+		}
+		if len(frac) > 4 {
+			return 0, errors.New("amount cannot have more than 4 decimal places")
+		}
+		if !isDigits(frac) {
+			return 0, errors.New("amount contains invalid characters")
+		}
+	} else {
+		frac = ""
+	}
+
+	wholeUnits, err := strconv.ParseInt(whole, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid whole amount: %w", err)
+	}
+
+	frac = frac + strings.Repeat("0", 4-len(frac))
+	fracUnits, err := strconv.ParseInt(frac, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid fractional amount: %w", err)
+	}
+
+	return sign * ((wholeUnits * moneyScale) + fracUnits), nil
+}
+
+func formatMoneyUnits(units int64) string {
+	sign := ""
+	if units < 0 {
+		sign = "-"
+		units = -units
+	}
+
+	whole := units / moneyScale
+	frac := units % moneyScale
+	fracText := fmt.Sprintf("%04d", frac)
+	for len(fracText) > 2 && strings.HasSuffix(fracText, "0") {
+		fracText = strings.TrimSuffix(fracText, "0")
+	}
+
+	return fmt.Sprintf("%s%d.%s", sign, whole, fracText)
+}
+
+func isDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func toSplitPlanView(txID int64, parentAmount string, amounts []string, dryRun bool) splitPlanView {
+	children := make([]splitChildView, 0, len(amounts))
+	for i, amount := range amounts {
+		children = append(children, splitChildView{
+			Index:  i + 1,
+			Amount: amount,
+		})
+	}
+	return splitPlanView{
+		TransactionID:     txID,
+		ParentAmount:      formatParentAmount(parentAmount),
+		ChildTransactions: children,
+		DryRun:            dryRun,
+	}
+}
+
+func toSplitResultChildViews(children []lunchmoney.Transaction, fallbackAmounts []string) []splitChildView {
+	if len(children) == 0 {
+		views := make([]splitChildView, 0, len(fallbackAmounts))
+		for i, amount := range fallbackAmounts {
+			views = append(views, splitChildView{Index: i + 1, Amount: amount})
+		}
+		return views
+	}
+
+	views := make([]splitChildView, 0, len(children))
+	for i, child := range children {
+		views = append(views, splitChildView{
+			Index:  i + 1,
+			ID:     child.ID,
+			Amount: formatParentAmount(child.Amount),
+			Payee:  child.Payee,
+		})
+	}
+	return views
+}
+
+func formatParentAmount(amount string) string {
+	units, err := parseMoneyUnits(amount)
+	if err != nil {
+		return amount
+	}
+	return formatMoneyUnits(units)
 }
 
 func buildCategoryLookup(categories []lunchmoney.Category) map[int64]categoryMeta {

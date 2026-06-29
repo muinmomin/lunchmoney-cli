@@ -37,18 +37,32 @@ type ListTransactionsParams struct {
 }
 
 type Transaction struct {
-	ID              int64   `json:"id"`
-	Date            string  `json:"date"`
-	Amount          string  `json:"amount"`
-	ToBase          float64 `json:"to_base"`
-	Payee           string  `json:"payee"`
-	CategoryID      *int64  `json:"category_id"`
-	ManualAccountID *int64  `json:"manual_account_id"`
-	PlaidAccountID  *int64  `json:"plaid_account_id"`
-	Notes           *string `json:"notes"`
-	Status          string  `json:"status"`
-	IsPending       bool    `json:"is_pending"`
-	TagIDs          []int64 `json:"tag_ids"`
+	ID              int64         `json:"id"`
+	Date            string        `json:"date"`
+	Amount          string        `json:"amount"`
+	Currency        string        `json:"currency"`
+	ToBase          float64       `json:"to_base"`
+	Payee           string        `json:"payee"`
+	CategoryID      *int64        `json:"category_id"`
+	ManualAccountID *int64        `json:"manual_account_id"`
+	PlaidAccountID  *int64        `json:"plaid_account_id"`
+	Notes           *string       `json:"notes"`
+	Status          string        `json:"status"`
+	IsPending       bool          `json:"is_pending"`
+	IsSplitParent   bool          `json:"is_split_parent"`
+	SplitParentID   *int64        `json:"split_parent_id"`
+	IsGroupParent   bool          `json:"is_group_parent"`
+	GroupParentID   *int64        `json:"group_parent_id"`
+	TagIDs          []int64       `json:"tag_ids"`
+	Children        []Transaction `json:"children,omitempty"`
+}
+
+type SplitTransactionChild struct {
+	Amount     string  `json:"amount"`
+	Payee      *string `json:"payee,omitempty"`
+	Date       *string `json:"date,omitempty"`
+	CategoryID *int64  `json:"category_id,omitempty"`
+	Notes      *string `json:"notes,omitempty"`
 }
 
 type Category struct {
@@ -169,6 +183,24 @@ func (c *Client) ListTransactions(ctx context.Context, params ListTransactionsPa
 	return all, nil
 }
 
+func (c *Client) GetTransaction(ctx context.Context, txID int64) (Transaction, error) {
+	if txID <= 0 {
+		return Transaction{}, errors.New("transaction id must be positive")
+	}
+
+	u := c.endpoint(path.Join("/transactions", strconv.FormatInt(txID, 10)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return Transaction{}, err
+	}
+
+	var tx Transaction
+	if err := c.doJSON(req, http.StatusOK, &tx); err != nil {
+		return Transaction{}, err
+	}
+	return tx, nil
+}
+
 func (c *Client) ListCategories(ctx context.Context) ([]Category, error) {
 	u := c.endpoint("/categories")
 	q := url.Values{}
@@ -268,6 +300,40 @@ func (c *Client) MarkReviewed(ctx context.Context, txIDs []int64) ([]Transaction
 		updated = append(updated, tx)
 	}
 	return updated, nil
+}
+
+func (c *Client) SplitTransaction(ctx context.Context, txID int64, children []SplitTransactionChild) (Transaction, error) {
+	if txID <= 0 {
+		return Transaction{}, errors.New("transaction id must be positive")
+	}
+	if len(children) < 2 {
+		return Transaction{}, errors.New("at least two child transactions are required")
+	}
+	for i, child := range children {
+		if strings.TrimSpace(child.Amount) == "" {
+			return Transaction{}, fmt.Errorf("child transaction %d amount is required", i+1)
+		}
+	}
+
+	payload := map[string]any{
+		"child_transactions": children,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return Transaction{}, err
+	}
+
+	u := c.endpoint(path.Join("/transactions/split", strconv.FormatInt(txID, 10)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(body))
+	if err != nil {
+		return Transaction{}, err
+	}
+
+	var tx Transaction
+	if err := c.doJSON(req, http.StatusCreated, &tx); err != nil {
+		return Transaction{}, err
+	}
+	return tx, nil
 }
 
 func (c *Client) updateTransaction(ctx context.Context, txID int64, payload map[string]any) (Transaction, error) {

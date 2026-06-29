@@ -65,6 +65,25 @@ Behavior:
 - Sends all ids in a single bulk update request.
 - No special retry/fallback behavior; API response is surfaced.
 
+### `lm tx split`
+Split one transaction into child transactions.
+
+Usage:
+- `lm tx split <tx-id> --parts <n> [--dry-run] [--json]`
+- `lm tx split <tx-id> --amount <amount> --amount <amount>... [--dry-run] [--json]`
+
+Behavior:
+- Exactly one transaction id is accepted.
+- Exactly one split mode is required: `--parts` or repeated `--amount` values.
+- `--parts` must be at least 2.
+- Repeated `--amount` values must include at least two values.
+- The parent transaction is fetched before splitting.
+- Transactions that are already split or grouped are rejected before the split call.
+- `--parts` uses cent-based integer math and distributes remainder cents to earlier children.
+- Repeated `--amount` values are parsed exactly up to 4 decimal places and must sum to the parent amount.
+- Child transactions inherit payee, date, category, and notes from the parent.
+- `--dry-run` performs validation and prints the planned split without calling `POST /transactions/split/{id}`.
+
 ## API Notes
 - API version: Lunch Money v2 only (`https://api.lunchmoney.dev/v2`).
 - Auth: `LUNCHMONEY_API_KEY` environment variable.

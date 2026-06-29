@@ -129,6 +129,26 @@ Mark one or more transactions as reviewed.
 lm tx mark-reviewed <tx-id> [<tx-id>...]
 ```
 
+### `lm tx split`
+
+Split one transaction into child transactions.
+
+```bash
+lm tx split <tx-id> --parts <n> [--dry-run] [--json]
+lm tx split <tx-id> --amount <amount> --amount <amount>... [--dry-run] [--json]
+```
+
+Behavior:
+
+- fetches the parent transaction first and validates before making the split API call
+- refuses transactions that are already split or grouped
+- `--parts` splits the parent amount into equal cent-based parts
+- extra cents from `--parts` are distributed to earlier children so the sum stays exact
+- repeated `--amount` values must contain at least two child amounts
+- repeated `--amount` values must sum exactly to the parent amount
+- child transactions inherit payee, date, category, and notes from the parent
+- `--dry-run` validates and prints the child amounts without calling the split API
+
 ## Examples
 
 ```bash
@@ -146,6 +166,10 @@ lm tx update 2355632583 --category-id 1170290
 lm tx update 2355632583 --note "testing"
 
 lm tx mark-reviewed 2355632583 2355632591
+
+lm tx split 2426461955 --parts 2 --dry-run
+lm tx split 2426461955 --parts 3
+lm tx split 2426461955 --amount 56.98 --amount 56.97
 ```
 
 ## Development
