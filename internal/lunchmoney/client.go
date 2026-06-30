@@ -65,6 +65,12 @@ type SplitTransactionChild struct {
 	Notes      *string `json:"notes,omitempty"`
 }
 
+type UpdateTransactionParams struct {
+	CategoryID *int64
+	Note       *string
+	Date       *string
+}
+
 type Category struct {
 	ID                int64  `json:"id"`
 	Name              string `json:"name"`
@@ -270,17 +276,20 @@ func (c *Client) ListPlaidAccounts(ctx context.Context) ([]PlaidAccount, error) 
 	return resp.PlaidAccounts, nil
 }
 
-func (c *Client) UpdateTransaction(ctx context.Context, txID int64, categoryID *int64, note *string) (Transaction, error) {
-	if categoryID == nil && note == nil {
-		return Transaction{}, errors.New("must provide category_id and/or note")
+func (c *Client) UpdateTransaction(ctx context.Context, txID int64, params UpdateTransactionParams) (Transaction, error) {
+	if params.CategoryID == nil && params.Note == nil && params.Date == nil {
+		return Transaction{}, errors.New("must provide category_id, note, and/or date")
 	}
 
 	payload := map[string]any{}
-	if categoryID != nil {
-		payload["category_id"] = *categoryID
+	if params.CategoryID != nil {
+		payload["category_id"] = *params.CategoryID
 	}
-	if note != nil {
-		payload["notes"] = *note
+	if params.Note != nil {
+		payload["notes"] = *params.Note
+	}
+	if params.Date != nil {
+		payload["date"] = *params.Date
 	}
 
 	return c.updateTransaction(ctx, txID, payload)

@@ -118,6 +118,27 @@ func TestValidateSplitAmountsRejectsBadSum(t *testing.T) {
 	}
 }
 
+func TestParseDateFlag(t *testing.T) {
+	got, err := parseDateFlag("--date", "2027-07-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Format("2006-01-02") != "2027-07-01" {
+		t.Fatalf("date = %s, want 2027-07-01", got.Format("2006-01-02"))
+	}
+}
+
+func TestParseDateFlagRejectsInvalidDate(t *testing.T) {
+	_, err := parseDateFlag("--date", "07/01/2027")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	want := `invalid --date date "07/01/2027" (expected YYYY-MM-DD)`
+	if err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
+	}
+}
+
 func TestValidateSplittableTransactionRejectsExistingSplitOrGroup(t *testing.T) {
 	splitParentID := int64(10)
 	groupParentID := int64(20)

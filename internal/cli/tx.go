@@ -150,11 +150,12 @@ func newTxUpdateCmd() *cobra.Command {
 	var (
 		categoryID int64
 		note       string
+		date       string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update <tx-id>",
-		Short: "Update a transaction category and/or note",
+		Short: "Update a transaction category, note, and/or date",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			txID, err := parseTxID(args[0])
@@ -164,8 +165,9 @@ func newTxUpdateCmd() *cobra.Command {
 
 			categorySet := cmd.Flags().Changed("category-id")
 			noteSet := cmd.Flags().Changed("note")
-			if !categorySet && !noteSet {
-				return errors.New("must provide at least one of --category-id or --note")
+			dateSet := cmd.Flags().Changed("date")
+			if !categorySet && !noteSet && !dateSet {
+				return errors.New("must provide at least one of --category-id, --note, or --date")
 			}
 			if categorySet && categoryID <= 0 {
 				return errors.New("--category-id must be a positive integer")
@@ -173,31 +175,42 @@ func newTxUpdateCmd() *cobra.Command {
 			if noteSet && strings.TrimSpace(note) == "" {
 				return errors.New("--note cannot be empty")
 			}
-
-			var categoryPtr *int64
-			if categorySet {
-				categoryPtr = &categoryID
+			if dateSet {
+				if _, err := parseDateFlag("--date", date); err != nil {
+					return err
+				}
 			}
-			var notePtr *string
+
+			params := lunchmoney.UpdateTransactionParams{}
+			if categorySet {
+				params.CategoryID = &categoryID
+			}
 			if noteSet {
 				noteValue := note
-				notePtr = &noteValue
+				params.Note = &noteValue
+			}
+			if dateSet {
+				dateValue := date
+				params.Date = &dateValue
 			}
 
 			client, err := lunchmoney.NewFromEnv()
 			if err != nil {
 				return err
 			}
-			if _, err := client.UpdateTransaction(context.Background(), txID, categoryPtr, notePtr); err != nil {
+			if _, err := client.UpdateTransaction(context.Background(), txID, params); err != nil {
 				return err
 			}
 
-			updatedFields := make([]string, 0, 2)
+			updatedFields := make([]string, 0, 3)
 			if categorySet {
 				updatedFields = append(updatedFields, "category")
 			}
 			if noteSet {
 				updatedFields = append(updatedFields, "note")
+			}
+			if dateSet {
+				updatedFields = append(updatedFields, "date")
 			}
 			fmt.Printf("Updated transaction %d (%s).\n", txID, strings.Join(updatedFields, ", "))
 			return nil
@@ -206,6 +219,7 @@ func newTxUpdateCmd() *cobra.Command {
 
 	cmd.Flags().Int64Var(&categoryID, "category-id", 0, "Category ID")
 	cmd.Flags().StringVar(&note, "note", "", "Transaction note")
+	cmd.Flags().StringVar(&date, "date", "", "Transaction date (YYYY-MM-DD)")
 
 	return cmd
 }
@@ -343,18 +357,26 @@ func newTxSplitCmd() *cobra.Command {
 }
 
 func validateDateRange(startDate, endDate string) error {
-	start, err := time.Parse("2006-01-02", startDate)
+	start, err := parseDateFlag("--start", startDate)
 	if err != nil {
-		return fmt.Errorf("invalid --start date %q (expected YYYY-MM-DD)", startDate)
+		return err
 	}
-	end, err := time.Parse("2006-01-02", endDate)
+	end, err := parseDateFlag("--end", endDate)
 	if err != nil {
-		return fmt.Errorf("invalid --end date %q (expected YYYY-MM-DD)", endDate)
+		return err
 	}
 	if end.Before(start) {
 		return errors.New("--end cannot be earlier than --start")
 	}
 	return nil
+}
+
+func parseDateFlag(flagName, raw string) (time.Time, error) {
+	parsed, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid %s date %q (expected YYYY-MM-DD)", flagName, raw)
+	}
+	return parsed, nil
 }
 
 func parseTxID(raw string) (int64, error) {

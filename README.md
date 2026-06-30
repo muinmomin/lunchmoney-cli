@@ -109,17 +109,18 @@ Behavior:
 
 ### `lm tx update`
 
-Update a single transaction's category and/or note.
+Update a single transaction's category, note, and/or date.
 
 ```bash
-lm tx update <tx-id> [--category-id <id>] [--note <text>]
+lm tx update <tx-id> [--category-id <id>] [--note <text>] [--date YYYY-MM-DD]
 ```
 
 Rules:
 
 - single transaction per command
-- at least one of `--category-id` or `--note` is required
+- at least one of `--category-id`, `--note`, or `--date` is required
 - empty notes are rejected
+- dates must use `YYYY-MM-DD`
 
 ### `lm tx mark-reviewed`
 
@@ -164,6 +165,7 @@ lm balances --json
 
 lm tx update 2355632583 --category-id 1170290
 lm tx update 2355632583 --note "testing"
+lm tx update 2355632583 --date 2027-07-01
 
 lm tx mark-reviewed 2355632583 2355632591
 

@@ -44,16 +44,17 @@ Usage:
 - `lm category list [--json]`
 
 ### `lm tx update`
-Update a single transaction category and/or note.
+Update a single transaction category, note, and/or date.
 
 Usage:
-- `lm tx update <tx-id> [--category-id <id>] [--note <text>]`
+- `lm tx update <tx-id> [--category-id <id>] [--note <text>] [--date YYYY-MM-DD]`
 
 Behavior:
 - Exactly one transaction id is accepted.
-- At least one of `--category-id` or `--note` is required.
+- At least one of `--category-id`, `--note`, or `--date` is required.
 - Empty note values are rejected (no note-clearing behavior).
-- Only category and note are updated.
+- Date values must use `YYYY-MM-DD`.
+- Only category, note, and date are updated.
 
 ### `lm tx mark-reviewed`
 Mark one or more transactions as reviewed.

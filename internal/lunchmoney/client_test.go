@@ -91,6 +91,45 @@ func TestSplitTransaction(t *testing.T) {
 	}
 }
 
+func TestUpdateTransactionSendsDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Fatalf("method = %s, want PUT", r.Method)
+		}
+		if r.URL.Path != "/transactions/123" {
+			t.Fatalf("path = %s, want /transactions/123", r.URL.Path)
+		}
+
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if got := body["date"]; got != "2027-07-01" {
+			t.Fatalf("date payload = %#v, want 2027-07-01", got)
+		}
+		if _, ok := body["status"]; ok {
+			t.Fatal("status should not be sent")
+		}
+
+		_ = json.NewEncoder(w).Encode(Transaction{
+			ID:     123,
+			Date:   "2027-07-01",
+			Amount: "10.0000",
+		})
+	}))
+	defer server.Close()
+
+	client := testClient(t, server)
+	date := "2027-07-01"
+	tx, err := client.UpdateTransaction(context.Background(), 123, UpdateTransactionParams{Date: &date})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tx.Date != "2027-07-01" {
+		t.Fatalf("date = %q, want 2027-07-01", tx.Date)
+	}
+}
+
 func testClient(t *testing.T, server *httptest.Server) *Client {
 	t.Helper()
 
